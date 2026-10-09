@@ -20,7 +20,13 @@ cmake --build rustplugin/build -j"$(nproc)"
 echo "===== 3/4 cpp plugin ====="
 # Qt headers live in different places per distro (Arch: /usr/include/qt6,
 # Debian/Ubuntu: /usr/include/<triplet>/qt6). Ask Qt rather than guess.
-QT_INC=$(qmake6 -query QT_INSTALL_HEADERS 2>/dev/null || echo /usr/include/qt6)
+QT_INC=$(qmake6 -query QT_INSTALL_HEADERS 2>/dev/null || true)
+if [ ! -d "$QT_INC/QtCore" ]; then
+	for candidate in /usr/include/qt6 /usr/include/*/qt6; do
+		[ -d "$candidate/QtCore" ] && { QT_INC=$candidate; break; }
+	done
+fi
+[ -d "$QT_INC/QtCore" ] || { echo "Qt6 headers not found"; exit 1; }
 g++ -std=c++20 -O2 -fPIC -shared \
 	-I. -I"$QT_INC" -I"$QT_INC/QtCore" \
 	-o cppplugin/libcpp_plugin.so cppplugin/main.cpp

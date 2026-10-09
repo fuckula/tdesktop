@@ -4,15 +4,23 @@ set -e
 cd "$(dirname "$0")"
 
 CXX=${CXX:-g++}
-# Qt installs differ per distro; ask qmake6 instead of hardcoding.
-QTINC=$(qmake6 -query QT_INSTALL_HEADERS 2>/dev/null || echo /usr/include/qt6)
-QTLIB=$(qmake6 -query QT_INSTALL_LIBS 2>/dev/null || echo /usr/lib)
-QT_LIBEXECS=$(qmake6 -query QT_INSTALL_LIBEXECS 2>/dev/null || echo /usr/lib/qt6)
-MOC=${MOC:-$QT_LIBEXECS/moc}
+# Qt installs differ per distro; ask qmake6, then probe, instead of hardcoding.
+QTINC=$(qmake6 -query QT_INSTALL_HEADERS 2>/dev/null || true)
+QTLIB=$(qmake6 -query QT_INSTALL_LIBS 2>/dev/null || true)
+QT_LIBEXECS=$(qmake6 -query QT_INSTALL_LIBEXECS 2>/dev/null || true)
 
+if [ ! -d "$QTINC/QtCore" ]; then
+	for candidate in /usr/include/qt6 /usr/include/*/qt6; do
+		[ -d "$candidate/QtCore" ] && { QTINC=$candidate; break; }
+	done
+fi
+[ -n "$QTLIB" ] || QTLIB=/usr/lib
+[ -n "$QT_LIBEXECS" ] || QT_LIBEXECS=/usr/lib/qt6
+
+MOC=${MOC:-$QT_LIBEXECS/moc}
 [ -x "$MOC" ] || MOC=$(command -v moc6 || command -v moc || true)
 [ -x "$MOC" ] || { echo "moc not found (looked in $QT_LIBEXECS)"; exit 1; }
-[ -d "$QTINC/QtCore" ] || { echo "Qt headers not found at $QTINC"; exit 1; }
+[ -d "$QTINC/QtCore" ] || { echo "Qt headers not found (looked in $QTINC)"; exit 1; }
 
 CFLAGS="-std=c++20 -O1 -fPIC -I$QTINC -I$QTINC/QtCore -I$QTINC/QtGui"
 LIBS="-L$QTLIB -lQt6Core"
@@ -27,9 +35,19 @@ echo "== plugin: static Qt (-DQT_STATICPLUGIN) =="
 $CXX $CFLAGS -DQT_STATICPLUGIN -shared -o libs1_static.so s1_plugin.cpp $LIBS
 
 echo "== host (release-like: static libstdc++/libgcc, -O2) =="
-$CXX -std=c++20 -O2 -fPIC -static-libstdc++ -static-libgcc \
+# -static-libstdc++ mirrors the release build's self-contained runtime. Some
+# distros ship g++ without libstdc++.a; fall back rather than fail, and say so,
+# because that difference is worth seeing in the log.
+if $CXX -std=c++20 -O2 -fPIC -static-libstdc++ -static-libgcc \
 	-I$QTINC -I$QTINC/QtCore -I$QTINC/QtGui \
-	-o s1_host s1_host.cpp $LIBS -ldl
+	-o s1_host s1_host.cpp $LIBS -ldl 2>/dev/null; then
+	echo "   (host linked with -static-libstdc++ -static-libgcc)"
+else
+	echo "   (no static libstdc++; host linked against the shared one)"
+	$CXX -std=c++20 -O2 -fPIC \
+		-I$QTINC -I$QTINC/QtCore -I$QTINC/QtGui \
+		-o s1_host s1_host.cpp $LIBS -ldl
+fi
 
 echo
 echo "############ ELF evidence ############"
