@@ -17,6 +17,7 @@ on:
       - '!.github/workflows/win.yml'
       - 'lib/xdg/**'
       - 'snap/**'
+      - 'plugin-abi-poc/**'
       - 'Telegram/build/docker/**'
       - 'Telegram/Resources/uwp/**'
       - 'Telegram/SourceFiles/platform/linux/**'
@@ -36,6 +37,7 @@ on:
       - '!.github/workflows/win.yml'
       - 'lib/xdg/**'
       - 'snap/**'
+      - 'plugin-abi-poc/**'
       - 'Telegram/build/docker/**'
       - 'Telegram/Resources/uwp/**'
       - 'Telegram/SourceFiles/platform/linux/**'
@@ -43,6 +45,8 @@ on:
       - 'Telegram/Telegram/**'
       - 'Telegram/configure.sh'
       - 'Telegram/Telegram.plist'
+
+  workflow_dispatch:
 
 jobs:
 

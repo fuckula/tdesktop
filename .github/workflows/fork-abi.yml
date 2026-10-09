@@ -1,0 +1,69 @@
+# Fork ABI contract suite.
+#
+# Upstream's workflows (linux.yml, mac.yml, win.yml) build the client itself and
+# are inherited as-is; this one guards the plugin ABI, which is fork-only code
+# and has no upstream counterpart to piggyback on.
+#
+# It is deliberately cheap: Qt6 Core + a C++ compiler + cargo, no Docker, no
+# tdesktop build. That is what makes it useful as a per-push gate — it fails in
+# seconds when the ABI contract drifts, instead of after a multi-hour build.
+#
+# Two suites, both asserting exact check counts so a silently skipped test is a
+# failure rather than a smaller green number:
+#
+#   poc/        the C ABI + Qt-bridge contract, Rust and C++ plugins on one header
+#   poc/s1_static/  the static-Qt loader probe (spike S1, see TRD §11)
+
+name: Fork ABI.
+
+on:
+  push:
+    branches-ignore:
+      - public-canary
+      - private-canary
+    paths:
+      - 'plugin-abi-poc/**'
+      - '.github/workflows/fork-abi.yml'
+  pull_request:
+    paths:
+      - 'plugin-abi-poc/**'
+      - '.github/workflows/fork-abi.yml'
+  workflow_dispatch:
+
+jobs:
+
+  abi:
+    name: Plugin ABI contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+
+      - name: Install Qt, compiler, Rust.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev libgl1-mesa-dev cmake g++ make
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Versions.
+        run: |
+          cmake --version | head -1
+          g++ --version | head -1
+          rustc --version
+          qmake6 -query QT_VERSION 2>/dev/null || true
+
+      - name: Build and run every suite.
+        run: ./plugin-abi-poc/build_all.sh
+
+      - name: Upload logs.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: abi-logs
+          path: |
+            plugin-abi-poc/run.log
+            plugin-abi-poc/s1_static/run.log
+          retention-days: 7

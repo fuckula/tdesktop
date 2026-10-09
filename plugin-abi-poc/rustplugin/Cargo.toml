@@ -1,0 +1,13 @@
+[package]
+name = "tdp-rust-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tdp_rust_plugin"
+# staticlib: linked into the Qt-loadable .so by CMake.
+# cdylib: also usable standalone for the pure C-ABI path.
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+parking_lot = "0.12"

@@ -1,0 +1,6 @@
+{
+    "Keys": ["dev.example.rust-poc"],
+    "name": "Rust PoC Plugin",
+    "abi": 1,
+    "version": "0.1.0"
+}
